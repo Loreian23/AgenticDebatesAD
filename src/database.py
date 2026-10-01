@@ -81,23 +81,26 @@ def _run_auto_migrations():
     if not DATABASE_URL.startswith("sqlite"):
         return
     import sqlite3
-    import re
-    # Extract the file path from sqlite:///... URL
-    db_path = re.sub(r'^sqlite:///', '/', DATABASE_URL)
-    db_path = re.sub(r'^sqlite:////', '//', db_path)
-    if not db_path.startswith('/'):
+    # Extract the file path from sqlite:///... URL (handles relative + absolute paths).
+    db_path = DATABASE_URL.replace("sqlite:///", "", 1)
+    if not db_path or db_path == ":memory:":
         return
+    # (table, column, type) tuples to add if missing. create_all handles new
+    # TABLES, but not new COLUMNS on existing tables.
+    migrations = [
+        ("participants", "session_token_hash", "VARCHAR(64)"),
+    ]
     try:
         conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(invite_tokens)")
-        cols = {row[1] for row in cursor.fetchall()}
-        migrations = [
-            ("token", "VARCHAR(128)"),
-        ]
-        for col_name, col_type in migrations:
-            if col_name not in cols:
-                conn.execute(f"ALTER TABLE invite_tokens ADD COLUMN {col_name} {col_type}")
-                conn.commit()
+        for table, col_name, col_type in migrations:
+            try:
+                cursor = conn.execute(f"PRAGMA table_info({table})")
+                cols = {row[1] for row in cursor.fetchall()}
+                if col_name not in cols:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
+                    conn.commit()
+            except Exception:
+                pass
         conn.close()
     except Exception:
         pass  # Migration failure is non-fatal

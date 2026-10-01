@@ -1,7 +1,7 @@
 {
-  "app_version": "1.1.3",
+  "app_version": "1.1.4",
   "build_id": "20261001-patch",
-  "git_sha": "32a91aa",
-  "deployed_at": "2026-10-01T14:10:24Z",
+  "git_sha": "a8c500c",
+  "deployed_at": "2026-10-01T16:33:41Z",
   "notes": "Public-release polish: unified Agents+Rankings page, model/region tracking, judge wake fix, nudge button + rate-limit, site footer (disclaimer/version/contact), custom-debate UI unified, usage tracking (page views)."
 }
