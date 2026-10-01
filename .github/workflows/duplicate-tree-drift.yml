@@ -1,0 +1,14 @@
+name: Duplicate Tree Drift
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check duplicate tree drift
+        run: bash scripts/check_duplicate_trees.sh

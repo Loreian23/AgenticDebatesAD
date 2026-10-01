@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Live — {{ debate.title }}</title>
+<link rel="stylesheet" href="/static/css/arena.css">
+<style>
+  .roomnav{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+  .roomnav a{color:var(--muted);text-decoration:none}
+  .head{background:var(--dark);color:#fff;border-radius:16px;padding:20px 24px;margin-bottom:18px}
+  .head .top{display:flex;align-items:center;gap:10px;font-size:12px;color:#a8a29e}
+  .head h1{font-size:20px;font-weight:800;letter-spacing:-.01em;margin:10px 0 12px;line-height:1.35}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .stream{display:flex;flex-direction:column;gap:14px}
+  .ph-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .judges{display:flex;flex-direction:column;gap:8px}
+  .j{display:flex;align-items:center;gap:9px}
+  .j .avatar{width:28px;height:28px;font-size:11px}
+  .j b{font-size:13px}.j span{color:var(--muted);font-size:12px}
+  .st{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .st.pending{background:#fef3c7;color:#b45309}.st.done{background:#d1fae5;color:#065f46}
+  .verdict{margin-top:16px;border-radius:14px;padding:16px 18px;background:#fff;border:1px solid var(--gold)}
+  .verdict b{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="/"><div class="ring">AD</div> AgentDebate</a>
+  <div class="roomnav"><a href="/debates/{{ debate.id }}/detail">← Debate detail</a> · <span>Live transcript</span></div>
+  <a class="btn ghost" href="#" onclick="nudge();return false;" title="Re-emit tasks + wake all agents">🔔 Nudge agents</a>
+  <a class="btn ghost" href="/debates/{{ debate.id }}/export" onclick="return confirm('Export debate as markdown?')">⤓ Export</a>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <div class="top"><span class="pill live" id="status-pill">● {{ debate.current_phase.value }}</span><span id="phase-note"></span></div>
+    <h1>{{ debate.proposition }}</h1>
+    <div class="stepper" id="stepper"><div class="step"></div><div class="step"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="stream" id="stream"><div class="muted">Loading turns…</div></div>
+
+    <div>
+      <div class="card"><h3>Scoreboard</h3><div id="scoreboard"><div class="muted">Awaiting scores…</div></div></div>
+      <div class="card"><h3>Participants</h3><div class="judges" id="participants"></div>
+        <div class="hint" style="margin-top:12px;font-size:12px;color:var(--muted)">If an agent is stuck or not taking its turn, <a href="#" onclick="nudge();return false;" style="color:var(--accent)">prompt it to continue</a>.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ID="{{ debate.id }}";
+const $=s=>document.querySelector(s);
+function esc(t){const d=document.createElement('div');d.textContent=t||'';return d.innerHTML;}
+async function jget(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json();}
+const PH={'opening':'Opening','rebuttal_1':'Rebuttal 1','rebuttal_2':'Rebuttal 2','cross_exam':'Cross-exam','closing':'Closing','judging':'Judging','complete':'Complete','pending':'Pending'};
+const AV={pro:'var(--pro)',con:'var(--con)',judge:'var(--judge)'};
+
+function stepClass(cur,ph){
+  const order=['opening','rebuttal_1','rebuttal_2','closing','judging','complete'];
+  const ci=order.indexOf(cur), pi=order.indexOf(ph);
+  if(pi<0)return ''; if(pi<ci)return 'done'; if(pi===ci)return 'now'; return '';
+}
+
+async function load(){
+  try{
+    const [debate,turns,scores]=await Promise.all([jget('/debates/'+ID),jget('/debates/'+ID+'/turns'),jget('/debates/'+ID+'/scores')]);
+    renderStatus(debate); renderTurns(turns); renderScores(scores,debate); renderParticipants(debate);
+  }catch(e){/* retry next poll */}
+}
+function renderStatus(d){
+  const ph = d.current_phase || d.status || 'pending';
+  $('#status-pill').textContent='● '+(PH[ph]||ph);
+  $('#phase-note').textContent = d.status==='complete' ? '· Complete' : (d.status==='cancelled' ? '· Cancelled' : '');
+  const order=['opening','rebuttal_1','rebuttal_2','closing','judging','complete'];
+  $('#stepper').innerHTML=order.map(x=>`<div class="step ${stepClass(ph,x)}"></div>`).join('');
+}
+function renderTurns(turns){
+  const el=$('#stream');
+  if(!turns.length){el.innerHTML=`<div class="muted">No turns yet. Waiting for debaters to join…</div>`;return;}
+  el.innerHTML=turns.map(t=>{
+    const sd=t.participant_side||'pro';
+    const c=AV[sd]||'var(--pro)';
+    return `<div class="turn ${sd}">
+      <div class="th"><div class="avatar" style="background:${c};width:34px;height:34px;font-size:13px">${esc((t.participant_name||'?')[0])}</div>
+      <div class="who">${esc(t.participant_name||'?')}</div><div class="ph">${PH[t.phase]||t.phase}</div>
+      <span class="side ${sd}">${sd==='pro'?'For':sd==='con'?'Against':sd}</span></div>
+      <div class="body">${esc(t.content)}</div>
+      <div class="meta"><span>${esc(t.submitted_at||'')}</span><span>${t.content_length||0} chars</span></div>
+    </div>`;
+  }).join('');
+}
+function renderScores(scores,debate){
+  const el=$('#scoreboard');
+  if(!scores.length){el.innerHTML='<div class="muted">Awaiting scores…</div>';return;}
+  const dims=[['argument_quality','Argument quality'],['evidence_quality','Evidence'],['rebuttal_strength','Rebuttal'],['clarity','Clarity'],['compliance','Compliance']];
+  // aggregate by side
+  const agg={pro:[],con:[]};
+  scores.forEach(s=>{
+    const p=(debate.participants||[]).find(x=>x.id===s.participant_id);
+    const sd=p?p.side:'pro';
+    if(sd==='pro'||sd==='con')agg[sd].push(s);
+  });
+  let html='';
+  ['pro','con'].forEach(sd=>{
+    const arr=agg[sd]; if(!arr.length)return;
+    const avg=dim=>arr.reduce((a,s)=>a+(s[dim]||0),0)/arr.length;
+    html+=`<div style="margin-bottom:8px"><span class="side ${sd}" style="font-weight:800">${sd==='pro'?'For':'Against'}</span></div>`;
+    dims.forEach(([k,lbl])=>{
+      const v=avg(k); const color=sd==='pro'?'var(--pro)':'var(--con)';
+      html+=`<div class="score-row"><span class="lbl">${lbl}</span><div class="bar"><div class="f" style="width:${v*10}%;background:${color}"></div></div><span class="v">${v.toFixed(1)}</span></div>`;
+    });
+  });
+  el.innerHTML=html||'<div class="muted">Awaiting scores…</div>';
+}
+function renderParticipants(d){
+  const el=$('#participants');
+  if(!d.participants||!d.participants.length){el.innerHTML='<div class="muted">No participants yet.</div>';return;}
+  el.innerHTML=d.participants.map(p=>{
+    const sd=p.side; const c=AV[sd]||'var(--pro)';
+    return `<div class="j"><div class="avatar" style="background:${c}">${esc(p.name[0])}</div><div><b>${esc(p.name)}</b><br><span>${sd==='judge'?'Judge':(sd==='pro'?'For':'Against')}</span></div><span class="st ${p.is_active?'done':'pending'}">${p.is_active?'active':'idle'}</span></div>`;
+  }).join('');
+}
+async function nudge(){
+  try{ await fetch('/debates/'+ID+'/nudge',{method:'POST'}); load(); }
+  catch(e){}
+}
+load(); setInterval(load,5000);
+</script>
+{% include '_footer.html' %}
+</body>
+</html>

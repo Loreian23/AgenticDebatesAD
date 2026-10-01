@@ -1,0 +1,104 @@
+/* AgentDebate — Arena design system (light theme) */
+:root{
+  --bg:#faf9f7; --panel:#ffffff; --ink:#1c1917; --muted:#78716c; --line:#e7e5e4;
+  --pro:#2563eb; --con:#dc2626; --judge:#059669; --accent:#7c3aed; --gold:#f59e0b;
+  --dark:#1c1917;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* Topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 26px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-size:17px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px;text-decoration:none}
+.brand .ring{width:26px;height:26px;border-radius:50%;border:3px solid var(--accent);display:grid;place-items:center;font-size:10px;font-weight:900;color:var(--accent)}
+.nav{display:flex;gap:20px}
+.nav a{text-decoration:none;color:var(--muted);font-weight:600;font-size:14px}
+.nav a.active,.nav a:hover{color:var(--ink)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 16px;border-radius:9px;border:1px solid transparent;cursor:pointer;font-weight:700;font-size:14px;text-decoration:none;line-height:1.2;transition:filter .15s,background .15s,border-color .15s}
+.btn.dark{background:var(--dark);color:#fff}
+.btn.dark:hover{filter:brightness(1.2)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:var(--panel);border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn.sm{padding:7px 13px;font-size:13px}
+.btn.block{width:100%}
+
+/* Cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.card h2{font-size:15px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.card h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:12px}
+
+/* Pills / badges */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;padding:3px 11px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+.pill.live{background:#22c55e;color:#fff}
+.pill.up{background:#fef3c7;color:#b45309}
+.pill.done{background:#d1fae5;color:#065f46}
+.pill.pending{background:#f3f4f6;color:#6b7280}
+.pill.cancelled{background:#fee2e2;color:#991b1b}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* Side / role badges */
+.side{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.side.pro{color:var(--pro)} .side.con{color:var(--con)} .side.judge{color:var(--judge)}
+.sidebadge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:5px;text-transform:uppercase}
+.sidebadge.pro{background:#eff6ff;color:var(--pro)} .sidebadge.con{background:#fef2f2;color:var(--con)} .sidebadge.judge{background:#ecfdf5;color:var(--judge)}
+
+/* Avatars */
+.avatar{border-radius:50%;color:#fff;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+
+/* Wrap + section */
+.wrap{max-width:1120px;margin:0 auto;padding:26px 20px 64px}
+.sec{display:flex;align-items:center;justify-content:space-between;margin:34px 0 16px}
+.sec h2{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.sec .more{color:var(--muted);font-weight:600;text-decoration:none;font-size:13px}
+
+/* Stepper */
+.stepper{display:flex;gap:6px}
+.stepper .step{flex:1;height:6px;border-radius:3px;background:#e7e5e4}
+.stepper .step.done{background:var(--judge)} .stepper .step.now{background:var(--accent)}
+
+/* Turn items */
+.turn{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.turn.pro{border-left:4px solid var(--pro)} .turn.con{border-left:4px solid var(--con)}
+.turn .th{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.turn .th .who{font-weight:800}
+.turn .th .ph{font-size:11px;color:var(--muted)}
+.turn .body{font-size:14px;color:#292524;white-space:pre-wrap}
+.turn .meta{font-size:11px;color:var(--muted);margin-top:10px;display:flex;gap:14px}
+
+/* Score bars */
+.score-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.score-row .lbl{width:110px;font-size:12px;color:var(--muted)}
+.score-row .bar{flex:1;height:14px;background:#f5f5f4;border-radius:7px;overflow:hidden}
+.score-row .bar .f{height:100%;border-radius:7px}
+.score-row .v{width:28px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Leaderboard rows */
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px}
+.lb-row:hover{background:#f8fafc}
+.lb-row .rank{width:22px;text-align:center;font-weight:700;color:var(--muted)}
+.lb-row .rank.top{color:var(--gold)}
+.lb-row .name{flex:1;font-weight:600}
+.lb-row .elo{font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Utility */
+.muted{color:var(--muted)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:860px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* Site footer */
+.site-footer{border-top:1px solid var(--line);background:var(--panel);margin-top:48px;padding:22px 0;color:var(--muted);font-size:12px}
+.site-footer .inner{max-width:1080px;margin:0 auto;padding:0 26px}
+.foot-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.foot-home{color:var(--ink);font-weight:700;text-decoration:none}
+.foot-ver{font-variant-numeric:tabular-nums;color:var(--muted)}
+.foot-disc{margin:4px 0;line-height:1.5}
+.foot-mail a{color:var(--accent);text-decoration:none}
+.foot-mail a:hover{text-decoration:underline}

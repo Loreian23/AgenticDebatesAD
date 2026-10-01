@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Agent Debate - {{ debate.title }}</title>
+    <link rel="stylesheet" href="/static/css/debate.css">
+</head>
+<body>
+    <div id="app">
+        <header class="debate-header">
+            <h1>{{ debate.title }}</h1>
+            <p class="proposition">{{ debate.proposition }}</p>
+            <div class="debate-meta">
+                <span class="status-badge" id="status-badge">{{ debate.status.value }}</span>
+                <span class="phase-indicator" id="phase-indicator">{{ debate.current_phase.value }}</span>
+            </div>
+        </header>
+
+        <main class="debate-container">
+            <!-- Turn Order / Table -->
+            <section class="turn-order-section">
+                <h2>Turn Order</h2>
+                <div id="turn-order-container" class="turn-order">
+                    <p>Loading...</p>
+                </div>
+            </section>
+
+            <!-- Current Turn -->
+            <section class="current-turn-section" id="current-turn-section">
+                <h2>Current Turn</h2>
+                <div id="current-turn-display">
+                    <p>Waiting for debate to start...</p>
+                </div>
+                <div id="turn-timer" class="timer hidden">
+                    Time remaining: <span id="timer-display">--:--</span>
+                </div>
+            </section>
+
+            <!-- Submit Turn -->
+            <section class="submit-section hidden" id="submit-section">
+                <h2>Submit Your Turn</h2>
+                <form id="turn-form">
+                    <div class="form-group">
+                        <label for="turn-content">Your Response:</label>
+                        <textarea 
+                            id="turn-content" 
+                            rows="8" 
+                            maxlength="{{ debate.max_turn_length }}"
+                            placeholder="Enter your argument..."
+                        ></textarea>
+                        <div class="char-count">
+                            <span id="char-count">0</span> / {{ debate.max_turn_length }} characters
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Turn</button>
+                </form>
+            </section>
+
+            <!-- Recent Turns -->
+            <section class="recent-turns-section">
+                <h2>Debate History</h2>
+                <div id="recent-turns-container" class="recent-turns">
+                    <p>No turns yet.</p>
+                </div>
+            </section>
+
+            <!-- Judge Panel (only visible to judges) -->
+            <section class="judge-panel hidden" id="judge-panel">
+                <h2>Judge Panel</h2>
+                <button class="btn btn-secondary" onclick="showScoringModal()">Submit Scores</button>
+                <button class="btn btn-danger" onclick="finalizeDebate()">Finalize Debate</button>
+            </section>
+        </main>
+
+        <!-- Scoring Modal -->
+        <div id="scoring-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeScoringModal()">&times;</span>
+                <h2>Submit Scores</h2>
+                <form id="scoring-form">
+                    <div class="form-group">
+                        <label for="score-participant">Participant:</label>
+                        <select id="score-participant" required>
+                            <option value="">Select participant...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="score-criteria">
+                        <div class="form-group">
+                            <label>Argument Quality (0-10):</label>
+                            <input type="range" id="score-argument" min="0" max="10" step="0.1" value="5">
+                            <span class="score-value" id="score-argument-value">5.0</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Evidence Quality (0-10):</label>
+                            <input type="range" id="score-evidence" min="0" max="10" step="0.1" value="5">
+                            <span class="score-value" id="score-evidence-value">5.0</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Rebuttal Strength (0-10):</label>
+                            <input type="range" id="score-rebuttal" min="0" max="10" step="0.1" value="5">
+                            <span class="score-value" id="score-rebuttal-value">5.0</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Clarity (0-10):</label>
+                            <input type="range" id="score-clarity" min="0" max="10" step="0.1" value="5">
+                            <span class="score-value" id="score-clarity-value">5.0</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Compliance (0-10):</label>
+                            <input type="range" id="score-compliance" min="0" max="10" step="0.1" value="5">
+                            <span class="score-value" id="score-compliance-value">5.0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="score-rationale">Rationale:</label>
+                        <textarea id="score-rationale" rows="4" placeholder="Explain your scoring..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Submit Score</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div id="connection-status" class="connection-status disconnected">
+            <span class="indicator"></span>
+            <span class="text">Disconnected</span>
+        </div>
+    </div>
+
+    <script>
+        // Config
+        const DEBATE_ID = '{{ debate.id }}';
+        const PARTICIPANT_ID = new URLSearchParams(window.location.search).get('participant_id');
+        const WS_URL = `ws://${window.location.host}/debates/${DEBATE_ID}/ws`;
+        const API_URL = `/debates/${DEBATE_ID}`;
+        
+        // State
+        let ws = null;
+        let currentState = null;
+        let isMyTurn = false;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            setupEventListeners();
+        });
+        
+        // WebSocket Connection
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                updateConnectionStatus(true);
+                console.log('WebSocket connected');
+            };
+            
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleWebSocketMessage(message);
+            };
+            
+            ws.onclose = () => {
+                updateConnectionStatus(false);
+                console.log('WebSocket disconnected, retrying in 3s...');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connection-status');
+            status.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+            status.querySelector('.text').textContent = connected ? 'Connected' : 'Disconnected';
+        }
+        
+        function handleWebSocketMessage(message) {
+            console.log('Received:', message.type, message.data);
+            
+            switch (message.type) {
+                case 'initial_state':
+                case 'state_update':
+                    updateState(message.data);
+                    break;
+                case 'turn_submitted':
+                    addTurnToHistory(message.data.turn);
+                    updateState(message.data.state);
+                    break;
+                case 'debate_started':
+                case 'debate_finalized':
+                    updateState(message.data);
+                    break;
+                case 'participant_joined':
+                    console.log('Participant joined:', message.data);
+                    break;
+                case 'pong':
+                    break;
+                default:
+                    console.log('Unknown message type:', message.type);
+            }
+        }
+        
+        // State Updates
+        function updateState(state) {
+            currentState = state;
+            
+            // Update status badges
+            document.getElementById('status-badge').textContent = state.status;
+            document.getElementById('phase-indicator').textContent = state.current_phase;
+            
+            // Update turn order
+            renderTurnOrder(state.turn_order);
+            
+            // Update current turn
+            renderCurrentTurn(state.current_turn);
+            
+            // Update recent turns
+            if (state.recent_turns) {
+                renderRecentTurns(state.recent_turns);
+            }
+            
+            // Check if it's my turn
+            checkMyTurn(state.current_turn);
+            
+            // Update timer
+            if (state.phase_deadline) {
+                startTimer(state.phase_deadline);
+            }
+        }
+        
+        function renderTurnOrder(turnOrder) {
+            const container = document.getElementById('turn-order-container');
+            
+            if (!turnOrder || turnOrder.length === 0) {
+                container.innerHTML = '<p>No turns scheduled yet.</p>';
+                return;
+            }
+            
+            const html = turnOrder.map((turn, index) => {
+                const statusClass = turn.status === 'current' ? 'current' : 
+                                   turn.status === 'completed' ? 'completed' : 'pending';
+                const isCurrent = turn.status === 'current';
+                
+                return `
+                    <div class="turn-item ${statusClass}" data-sequence="${turn.sequence_number}">
+                        <span class="turn-number">${turn.sequence_number}</span>
+                        <span class="turn-phase">${turn.phase}</span>
+                        <span class="turn-participant">${turn.participant_name}</span>
+                        <span class="turn-side ${turn.side}">${turn.side.toUpperCase()}</span>
+                        <span class="turn-status">${turn.status}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        function renderCurrentTurn(currentTurn) {
+            const display = document.getElementById('current-turn-display');
+            
+            if (!currentTurn) {
+                display.innerHTML = '<p class="phase-complete">Phase complete. Waiting for next phase...</p>';
+                document.getElementById('submit-section').classList.add('hidden');
+                return;
+            }
+            
+            const guidance = getPhaseGuidance(currentTurn.phase);
+
+            display.innerHTML = `
+                <div class="current-turn-info">
+                    <p><strong>${currentTurn.participant_name}</strong> (${currentTurn.side.toUpperCase()})</p>
+                    <p class="turn-phase">Phase: ${currentTurn.phase}</p>
+                    <p class="turn-sequence">Turn #${currentTurn.sequence_number}</p>
+                    <div class="turn-guidance">
+                        <p><strong>${guidance.title}</strong> — ${guidance.objective}</p>
+                        <ul>
+                            ${guidance.bullets.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getPhaseGuidance(phase) {
+            const map = {
+                opening: {
+                    title: 'Opening statement',
+                    objective: 'Introduce your case and core claims.',
+                    bullets: ['State thesis clearly', 'Give strongest 2-3 reasons']
+                },
+                rebuttal_1: {
+                    title: 'Rebuttal round 1',
+                    objective: 'Address opponent’s strongest claim directly.',
+                    bullets: ['Name claim you are countering', 'Show why it fails']
+                },
+                rebuttal_2: {
+                    title: 'Rebuttal round 2',
+                    objective: 'Resolve remaining counterarguments.',
+                    bullets: ['Close unresolved points', 'Set up your closing']
+                },
+                cross_exam: {
+                    title: 'Cross examination',
+                    objective: 'Pressure assumptions with concise points.',
+                    bullets: ['Ask/answer directly', 'Focus on contradictions']
+                },
+                closing: {
+                    title: 'Closing statement',
+                    objective: 'Summarize why your side wins.',
+                    bullets: ['Recap decisive points', 'End with clear verdict line']
+                }
+            };
+
+            return map[phase] || {
+                title: 'Current phase',
+                objective: 'Provide a focused response.',
+                bullets: ['Stay concise', 'Address key points']
+            };
+        }
+        
+        function parseServerDate(value) {
+            if (!value) return null;
+            if (typeof value !== 'string') return new Date(value);
+            const hasTimezone = /([zZ]|[+\-]\d\d:?\d\d)$/.test(value);
+            const normalized = hasTimezone ? value : `${value}Z`;
+            return new Date(normalized);
+        }
+
+        function formatLocalTimestamp(value) {
+            const d = parseServerDate(value);
+            if (!d || Number.isNaN(d.getTime())) return 'Unknown time';
+            return d.toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'medium',
+            });
+        }
+
+        function renderRecentTurns(turns) {
+            const container = document.getElementById('recent-turns-container');
+            
+            if (!turns || turns.length === 0) {
+                container.innerHTML = '<p>No turns yet.</p>';
+                return;
+            }
+            
+            const html = turns.map(turn => `
+                <div class="turn-card ${turn.side}">
+                    <div class="turn-header">
+                        <span class="turn-author">${turn.participant_name}</span>
+                        <span class="turn-side-badge ${turn.side}">${turn.side.toUpperCase()}</span>
+                        <span class="turn-phase">${turn.phase}</span>
+                    </div>
+                    <div class="turn-content">${escapeHtml(turn.content || turn.content_preview || '')}</div>
+                    <div class="turn-meta">
+                        <span>${formatLocalTimestamp(turn.submitted_at)}</span>
+                        <span>Turn #${turn.sequence_number}</span>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        function checkMyTurn(currentTurn) {
+            isMyTurn = currentTurn && currentTurn.participant_id === PARTICIPANT_ID;
+            
+            const submitSection = document.getElementById('submit-section');
+            if (isMyTurn) {
+                submitSection.classList.remove('hidden');
+                document.getElementById('turn-content').focus();
+            } else {
+                submitSection.classList.add('hidden');
+            }
+        }
+        
+        // Timer
+        let timerInterval = null;
+        
+        function startTimer(deadline) {
+            const timerEl = document.getElementById('turn-timer');
+            const displayEl = document.getElementById('timer-display');
+            
+            timerEl.classList.remove('hidden');
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            const deadlineTime = new Date(deadline).getTime();
+            
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const diff = deadlineTime - now;
+                
+                if (diff <= 0) {
+                    clearInterval(timerInterval);
+                    displayEl.textContent = '00:00';
+                    return;
+                }
+                
+                const minutes = Math.floor(diff / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                displayEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        // Event Listeners
+        function setupEventListeners() {
+            // Character count
+            const textarea = document.getElementById('turn-content');
+            const charCount = document.getElementById('char-count');
+            
+            textarea.addEventListener('input', () => {
+                const count = textarea.value.length;
+                charCount.textContent = count;
+                
+                if (count > {{ debate.max_turn_length }}) {
+                    charCount.classList.add('over-limit');
+                } else {
+                    charCount.classList.remove('over-limit');
+                }
+            });
+            
+            // Form submission
+            document.getElementById('turn-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitTurn();
+            });
+            
+            // Scoring form sliders
+            ['argument', 'evidence', 'rebuttal', 'clarity', 'compliance'].forEach(criterion => {
+                const slider = document.getElementById(`score-${criterion}`);
+                const value = document.getElementById(`score-${criterion}-value`);
+                
+                slider.addEventListener('input', () => {
+                    value.textContent = parseFloat(slider.value).toFixed(1);
+                });
+            });
+            
+            // Scoring form submission
+            document.getElementById('scoring-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitScore();
+            });
+        }
+        
+        // API Calls
+        async function submitTurn() {
+            const content = document.getElementById('turn-content').value.trim();
+            
+            if (!content) {
+                alert('Please enter your response');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/turns?participant_id=${PARTICIPANT_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'Failed to submit turn'));
+                    return;
+                }
+                
+                // Clear form
+                document.getElementById('turn-content').value = '';
+                document.getElementById('char-count').textContent = '0';
+                
+                // Hide submit section
+                document.getElementById('submit-section').classList.add('hidden');
+                
+            } catch (error) {
+                console.error('Submit error:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+        
+        async function submitScore() {
+            const participantId = document.getElementById('score-participant').value;
+            
+            if (!participantId) {
+                alert('Please select a participant');
+                return;
+            }
+            
+            const score = {
+                participant_id: participantId,
+                argument_quality: parseFloat(document.getElementById('score-argument').value),
+                evidence_quality: parseFloat(document.getElementById('score-evidence').value),
+                rebuttal_strength: parseFloat(document.getElementById('score-rebuttal').value),
+                clarity: parseFloat(document.getElementById('score-clarity').value),
+                compliance: parseFloat(document.getElementById('score-compliance').value),
+                rationale: document.getElementById('score-rationale').value,
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/scores?judge_id=${PARTICIPANT_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(score)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'Failed to submit score'));
+                    return;
+                }
+                
+                closeScoringModal();
+                alert('Score submitted successfully!');
+                
+            } catch (error) {
+                console.error('Score submit error:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+        
+        async function finalizeDebate() {
+            if (!confirm('Are you sure you want to finalize this debate? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/finalize`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'Failed to finalize'));
+                    return;
+                }
+                
+                alert('Debate finalized! View results.');
+                window.location.href = `${API_URL}/results`;
+                
+            } catch (error) {
+                console.error('Finalize error:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+        
+        // Modal Controls
+        function showScoringModal() {
+            // Populate participant dropdown
+            const select = document.getElementById('score-participant');
+            select.innerHTML = '<option value="">Select participant...</option>';
+            
+            if (currentState && currentState.turn_order) {
+                const debaters = [...new Set(currentState.turn_order.map(t => ({
+                    id: t.participant_id,
+                    name: t.participant_name,
+                    side: t.side
+                })))];
+                
+                debaters.forEach(d => {
+                    const option = document.createElement('option');
+                    option.value = d.id;
+                    option.textContent = `${d.name} (${d.side.toUpperCase()})`;
+                    select.appendChild(option);
+                });
+            }
+            
+            document.getElementById('scoring-modal').classList.remove('hidden');
+        }
+        
+        function closeScoringModal() {
+            document.getElementById('scoring-modal').classList.add('hidden');
+        }
+        
+        // Utilities
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function addTurnToHistory(turn) {
+            // Will be updated via state refresh
+            console.log('Turn submitted:', turn);
+        }
+    </script>
+</body>
+</html>

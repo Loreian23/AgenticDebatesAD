@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Agent Debate System</title>
+    <link rel="stylesheet" href="/static/css/debate.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+        .admin-header h1 { margin-bottom: 0.5rem; }
+        .admin-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .admin-section h2 { margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .stat-card {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value { font-size: 2rem; font-weight: bold; color: #2563eb; }
+        .stat-label { font-size: 0.875rem; color: #6b7280; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .data-table th { background: #f9fafb; font-weight: 600; }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge.active { background: #d1fae5; color: #065f46; }
+        .badge.inactive { background: #fee2e2; color: #991b1b; }
+        .btn-small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-revoke { background: #fee2e2; color: #991b1b; }
+        .btn-view { background: #eff6ff; color: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar">
+        <a href="/">← Back to Home</a>
+    </nav>
+    
+    <div class="container">
+        <div class="admin-header">
+            <h1>Admin Dashboard</h1>
+            <p>Manage agents, federation keys, and system settings</p>
+        </div>
+        
+        <!-- Stats Overview -->
+        <div class="admin-section">
+            <h2>System Overview</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-debates">-</div>
+                    <div class="stat-label">Total Debates</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-agents">-</div>
+                    <div class="stat-label">Registered Agents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-keys">-</div>
+                    <div class="stat-label">Active API Keys</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-tournaments">-</div>
+                    <div class="stat-label">Tournaments</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stuck Debates -->
+        <div class="admin-section" id="stuck-debates">
+            <p>Loading...</p>
+        </div>
+        
+        <!-- Recent Debates -->
+        <div class="admin-section">
+            <h2>Recent Debates</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Phase</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="debates-table">
+                    <tr><td colspan="5">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Federation Keys -->
+        <div class="admin-section">
+            <h2>Federation API Keys</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Agent ID</th>
+                        <th>Key Prefix</th>
+                        <th>Status</th>
+                        <th>Rate Limit</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="keys-table">
+                    <tr><td colspan="5">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        // Load admin data
+        async function loadAdminData() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                const data = await res.json();
+                document.getElementById('stat-debates').textContent = data.debates || 0;
+                document.getElementById('stat-agents').textContent = data.agents || 0;
+                document.getElementById('stat-keys').textContent = data.keys || 0;
+                document.getElementById('stat-tournaments').textContent = data.tournaments || 0;
+
+                // Show stuck debates
+                const stuckDiv = document.getElementById('stuck-debates');
+                if (data.stuck_debates && data.stuck_debates.length > 0) {
+                    stuckDiv.innerHTML = '<h2 style="color: #dc2626;">⚠️ Stuck Debates (' + data.stuck_debates.length + ')</h2>' +
+                        data.stuck_debates.map(d => `
+                            <div style="padding:0.75rem;margin:0.5rem 0;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px;">
+                                <strong>${escapeHtml(d.title)}</strong> — ${d.phase}<br>
+                                <small>Stuck ${d.minutes_stuck} min | deadline: ${d.phase_deadline ? new Date(d.phase_deadline).toLocaleTimeString() : 'none'}</small>
+                            </div>
+                        `).join('');
+                } else {
+                    stuckDiv.innerHTML = '<p style="color: #059669;">✅ No stuck debates</p>';
+                }
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+        
+        async function loadRecentDebates() {
+            try {
+                const res = await fetch('/debates?limit=10');
+                const data = await res.json();
+                const tbody = document.getElementById('debates-table');
+                if (data.debates && data.debates.length > 0) {
+                    tbody.innerHTML = data.debates.map(d => `
+                        <tr>
+                            <td>${d.title}</td>
+                            <td><span class="badge ${d.status}">${d.status}</span></td>
+                            <td>${d.current_phase || '-'}</td>
+                            <td>${new Date(d.created_at).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn-small btn-view" onclick="viewDebate('${d.id}')">View</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5">No debates found</td></tr>';
+                }
+            } catch (e) {
+                document.getElementById('debates-table').innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+            }
+        }
+        
+        function viewDebate(id) {
+            window.location.href = `/debates/${id}/view`;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        loadAdminData();
+        loadRecentDebates();
+    </script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Results - {{ debate.title }}</title>
+    <link rel="stylesheet" href="/static/css/debate.css">
+    <style>
+        /* M5.6: Results Scorecard Visual */
+        .score-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        .team-score-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .team-score-card.pro { border-top: 4px solid #3b82f6; }
+        .team-score-card.con { border-top: 4px solid #ef4444; }
+        .team-score-card h3 { margin-bottom: 1rem; }
+        .score-bar-container {
+            background: #f3f4f6;
+            border-radius: 4px;
+            height: 24px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+        .score-bar {
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 0.5rem;
+            color: white;
+            font-weight: bold;
+            font-size: 0.875rem;
+            transition: width 1s ease-out;
+        }
+        .score-bar.pro { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .score-bar.con { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .score-dimensions {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .dimension-score {
+            text-align: center;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+        }
+        .dimension-score .dim-name {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        .dimension-score .dim-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header class="results-header">
+            <h1>{{ debate.title }}</h1>
+            <p class="proposition">{{ debate.proposition }}</p>
+            
+            <div class="winner-announcement {{ results.winner or 'tie' }}">
+                {% if results.winner %}
+                    Winner: {{ results.winner.upper() }}
+                {% else %}
+                    Result: Tie
+                {% endif %}
+            </div>
+            
+            <div class="confidence-score">
+                Confidence: {{ "%.0f" | format(results.confidence * 100) }}%
+            </div>
+        </header>
+
+        <main class="debate-container">
+            <!-- M5.6: Visual Scorecard -->
+            <section>
+                <h2>Score Comparison</h2>
+                <div class="score-comparison">
+                    <div class="team-score-card pro">
+                        <h3>PRO Team ({{ "%.1f" | format(results.team_scores.pro) }})</h3>
+                        <div class="score-bar-container">
+                            <div class="score-bar pro" style="width: {{ (results.team_scores.pro / 10) * 100 }}%">
+                                {{ "%.1f" | format(results.team_scores.pro) }}
+                            </div>
+                        </div>
+                        {% if results.individual_scores.pro %}
+                        <div class="score-dimensions">
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.pro.argument_quality or 0) }}</div>
+                                <div class="dim-name">Argument</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.pro.evidence_quality or 0) }}</div>
+                                <div class="dim-name">Evidence</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.pro.rebuttal_strength or 0) }}</div>
+                                <div class="dim-name">Rebuttal</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.pro.clarity or 0) }}</div>
+                                <div class="dim-name">Clarity</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.pro.compliance or 0) }}</div>
+                                <div class="dim-name">Compliance</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="team-score-card con">
+                        <h3>CON Team ({{ "%.1f" | format(results.team_scores.con) }})</h3>
+                        <div class="score-bar-container">
+                            <div class="score-bar con" style="width: {{ (results.team_scores.con / 10) * 100 }}%">
+                                {{ "%.1f" | format(results.team_scores.con) }}
+                            </div>
+                        </div>
+                        {% if results.individual_scores.con %}
+                        <div class="score-dimensions">
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.con.argument_quality or 0) }}</div>
+                                <div class="dim-name">Argument</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.con.evidence_quality or 0) }}</div>
+                                <div class="dim-name">Evidence</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.con.rebuttal_strength or 0) }}</div>
+                                <div class="dim-name">Rebuttal</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.con.clarity or 0) }}</div>
+                                <div class="dim-name">Clarity</div>
+                            </div>
+                            <div class="dimension-score">
+                                <div class="dim-value">{{ "%.1f" | format(results.individual_scores.con.compliance or 0) }}</div>
+                                <div class="dim-name">Compliance</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rationale -->
+            <section>
+                <h2>Judge's Rationale</h2>
+                <pre class="rationale-text">{{ results.rationale }}</pre>
+            </section>
+
+            <!-- Team Scores -->
+            <section>
+                <h2>Team Scores</h2>
+                <div class="scores-grid">
+                    <div class="score-card">
+                        <h3>PRO Team</h3>
+                        <div class="score-row">
+                            <span>Argument Quality</span>
+                            <span>{{ results.team_scores.pro.average_scores.argument_quality }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Evidence Quality</span>
+                            <span>{{ results.team_scores.pro.average_scores.evidence_quality }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Rebuttal Strength</span>
+                            <span>{{ results.team_scores.pro.average_scores.rebuttal_strength }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Clarity</span>
+                            <span>{{ results.team_scores.pro.average_scores.clarity }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Compliance</span>
+                            <span>{{ results.team_scores.pro.average_scores.compliance }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Total Weighted</span>
+                            <span>{{ results.team_scores.pro.average_scores.weighted }}/10</span>
+                        </div>
+                    </div>
+                    
+                    <div class="score-card">
+                        <h3>CON Team</h3>
+                        <div class="score-row">
+                            <span>Argument Quality</span>
+                            <span>{{ results.team_scores.con.average_scores.argument_quality }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Evidence Quality</span>
+                            <span>{{ results.team_scores.con.average_scores.evidence_quality }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Rebuttal Strength</span>
+                            <span>{{ results.team_scores.con.average_scores.rebuttal_strength }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Clarity</span>
+                            <span>{{ results.team_scores.con.average_scores.clarity }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Compliance</span>
+                            <span>{{ results.team_scores.con.average_scores.compliance }}/10</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Total Weighted</span>
+                            <span>{{ results.team_scores.con.average_scores.weighted }}/10</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 1.5rem;">Score Differences (PRO - CON)</h3>
+                <div class="score-card" style="max-width: 400px;">
+                    {% for criterion, diff in results.team_scores.differences.items() %}
+                    <div class="score-row">
+                        <span>{{ criterion.replace('_', ' ').title() }}</span>
+                        <span class="{{ 'positive' if diff > 0 else 'negative' if diff < 0 else 'neutral' }}">
+                            {{ "+%.2f" | format(diff) if diff > 0 else "%.2f" | format(diff) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Individual Scores -->
+            <section>
+                <h2>Individual Scores</h2>
+                <div class="scores-grid">
+                    {% for scorer in results.individual_scores %}
+                    <div class="score-card {{ scorer.side }}">
+                        <h3>{{ scorer.name }} ({{ scorer.side.upper() }})</h3>
+                        <div class="score-row">
+                            <span>Weighted Score</span>
+                            <span><strong>{{ scorer.scores.weighted }}/10</strong></span>
+                        </div>
+                        <div class="score-row">
+                            <span>Argument Quality</span>
+                            <span>{{ scorer.scores.argument_quality }}</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Evidence Quality</span>
+                            <span>{{ scorer.scores.evidence_quality }}</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Rebuttal Strength</span>
+                            <span>{{ scorer.scores.rebuttal_strength }}</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Clarity</span>
+                            <span>{{ scorer.scores.clarity }}</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Compliance</span>
+                            <span>{{ scorer.scores.compliance }}</span>
+                        </div>
+                        <div class="score-row">
+                            <span>Judges</span>
+                            <span>{{ scorer.judge_count }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Export -->
+            <section>
+                <h2>Export Results</h2>
+                <div class="export-buttons">
+                    <button class="btn btn-secondary" onclick="exportResults('json')">
+                        Export as JSON
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportResults('markdown')">
+                        Export as Markdown
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportResults('csv')">
+                        Export as CSV
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const DEBATE_ID = '{{ debate.id }}';
+        
+        async function exportResults(format) {
+            try {
+                const response = await fetch(`/debates/${DEBATE_ID}/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        format: format,
+                        include_scores: true,
+                        include_turns: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    alert('Export failed');
+                    return;
+                }
+                
+                // Download file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `debate_${DEBATE_ID}.${format === 'markdown' ? 'md' : format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Export failed');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test artifacts
+.pytest_cache/
+*.db
+
+# Virtual environments
+.venv/
+venv/
+
+# Editor and OS files
+.DS_Store
+.vscode/
+.idea/
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Docker
+.docker/

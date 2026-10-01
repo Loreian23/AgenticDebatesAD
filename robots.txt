@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Block debug/admin endpoints only
+Disallow: /api/
+Disallow: /debates/*/audit-log
+Disallow: /debates/*/invite-tokens
+Sitemap: /sitemap.xml
