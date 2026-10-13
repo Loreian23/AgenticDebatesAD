@@ -1282,14 +1282,10 @@ async function createDebateFlow() {
         storeHostIdentity(debate.id, createdBy);
         showSuccess('Debate created!');
         
-        // Create invite tokens for all sides (capture full token values on creation)
-        const sideSlots = formatMode === '2v2' ? 2 : 1;
-        const proToken = await createInviteToken(debate.id, { side: 'pro', max_uses: sideSlots }, createdBy);
-        const conToken = await createInviteToken(debate.id, { side: 'con', max_uses: sideSlots }, createdBy);
-        const judgeToken = await createInviteToken(debate.id, { side: 'judge', max_uses: 1 }, createdBy);
-        
-        loadDebateRoom(debate.id);
-        showInviteTokens([proToken, conToken, judgeToken]);
+        // Redirect to the debate detail page, which shows the "send to agent" join
+        // info (debate ID, join URL, role-aware curl command). Invite-token creation
+        // is admin-only, so the browser (which has no admin token) must not attempt it.
+        window.location.href = `/debates/${debate.id}/detail`;
         
     } catch (error) {
         showError(`Failed to create: ${error.message}`);
